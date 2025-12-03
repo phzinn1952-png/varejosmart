@@ -4,9 +4,10 @@ import { useAppContext } from '../context/AppContext';
 import { Product, ProductStatus, UnitOfMeasure, InvoiceImportData } from '../types';
 import { Plus, Edit, Trash2, Sparkles, Loader2, Image as ImageIcon, Box, Tag, DollarSign, Archive, X, CheckCircle, AlertTriangle, Upload, Wand2, ChevronDown, Check, TrendingUp, TrendingDown, AlertCircle, Package, Layers, FileSpreadsheet } from 'lucide-react';
 import { getBusinessInsight } from '../services/geminiService';
+import DataBackup from '../components/DataBackup';
 
 const Products: React.FC = () => {
-  const { products, addProduct, updateProduct, deleteProduct, sales, processInvoiceImport } = useAppContext();
+  const { products, addProduct, updateProduct, deleteProduct, sales, processInvoiceImport, exportData, importData } = useAppContext();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
@@ -238,6 +239,22 @@ const Products: React.FC = () => {
             </button>
         </div>
       </div>
+
+      <DataBackup
+        onExport={exportData}
+        onImport={(file) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            try {
+              const data = JSON.parse(e.target?.result as string);
+              importData(data);
+            } catch (error) {
+              alert('Erro ao ler arquivo. Verifique se é um backup válido.');
+            }
+          };
+          reader.readAsText(file);
+        }}
+      />
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">

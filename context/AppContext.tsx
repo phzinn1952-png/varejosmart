@@ -54,6 +54,10 @@ interface AppContextType {
   // New properties for updates notification
   hasUnseenUpdates: boolean;
   markUpdatesAsSeen: () => void;
+
+  // Data backup/restore
+  exportData: () => void;
+  importData: (data: any) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -88,6 +92,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (storedAuth === 'true' && storedUser) {
       setIsAuthenticated(true);
       setUser(JSON.parse(storedUser));
+    }
+
+    // Products
+    const storedProducts = localStorage.getItem('vs_products');
+    if (storedProducts) {
+      setProducts(JSON.parse(storedProducts));
+    }
+
+    // Customers
+    const storedCustomers = localStorage.getItem('vs_customers');
+    if (storedCustomers) {
+      setCustomers(JSON.parse(storedCustomers));
     }
 
     // Sales
@@ -162,6 +178,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Save changes to localStorage
   useEffect(() => {
+    localStorage.setItem('vs_products', JSON.stringify(products));
+  }, [products]);
+
+  useEffect(() => {
+    localStorage.setItem('vs_customers', JSON.stringify(customers));
+  }, [customers]);
+
+  useEffect(() => {
+    localStorage.setItem('vs_sales', JSON.stringify(sales));
+  }, [sales]);
+
+  useEffect(() => {
     if (Object.keys(plans).length > 0) localStorage.setItem('vs_plans', JSON.stringify(plans));
   }, [plans]);
 
@@ -176,7 +204,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     if (tenantUsers.length > 0) localStorage.setItem('vs_employees', JSON.stringify(tenantUsers));
   }, [tenantUsers]);
-  
+
   useEffect(() => {
     if (suppliers.length > 0) localStorage.setItem('vs_suppliers', JSON.stringify(suppliers));
   }, [suppliers]);
@@ -417,11 +445,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return p;
     }));
 
-    setSales(prevSales => {
-      const newSalesHistory = [...prevSales, newSale];
-      localStorage.setItem('vs_sales', JSON.stringify(newSalesHistory));
-      return newSalesHistory;
-    });
+    setSales(prevSales => [...prevSales, newSale]);
   }, []);
 
   const getDashboardStats = useCallback(() => {
@@ -516,8 +540,50 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     markUpdatesAsSeen
   ]);
 
+  // Export all data to JSON file
+  const exportData = useCallback(() => {
+    const data = {
+      products,
+      sales,
+      customers,
+      suppliers,
+      exportDate: new Date().toISOString(),
+      version: '1.0'
+    };
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `varejosmart-backup-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [products, sales, customers, suppliers]);
+
+  // Import data from JSON file
+  const importData = useCallback((data: any) => {
+    try {
+      if (data.products) setProducts(data.products);
+      if (data.sales) setSales(data.sales);
+      if (data.customers) setCustomers(data.customers);
+      if (data.suppliers) setSuppliers(data.suppliers);
+      alert('Dados importados com sucesso!');
+    } catch (error) {
+      console.error('Erro ao importar dados:', error);
+      alert('Erro ao importar dados. Verifique o arquivo.');
+    }
+  }, []);
+
+  const value = {
+    ...contextValue,
+    exportData,
+    importData
+  };
+
   return (
-    <AppContext.Provider value={contextValue}>
+    <AppContext.Provider value={value}>
       {children}
     </AppContext.Provider>
   );
