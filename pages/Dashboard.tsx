@@ -1,16 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { DollarSign, ShoppingBag, TrendingUp, AlertTriangle, Sparkles, Loader2, ArrowRight, BellRing } from 'lucide-react';
+import { DollarSign, ShoppingBag, TrendingUp, AlertTriangle, Sparkles, Loader2, ArrowRight, BellRing, X, Eye, Calendar } from 'lucide-react';
 import { getBusinessInsight } from '../services/geminiService';
+import { Sale } from '../types';
 
 const Dashboard: React.FC = () => {
   const { getDashboardStats, products, sales } = useAppContext();
   const stats = getDashboardStats();
   const [insight, setInsight] = useState<string>('');
   const [loadingInsight, setLoadingInsight] = useState(false);
+  const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [dateFilter, setDateFilter] = useState<string>('');
 
   const lowStockCount = products.filter(p => p.stock <= p.minStock).length;
+
+  // Filter sales by date
+  const filteredSales = useMemo(() => {
+    if (!dateFilter) return sales;
+    const filterDate = new Date(dateFilter).toDateString();
+    return sales.filter(sale => new Date(sale.timestamp).toDateString() === filterDate);
+  }, [sales, dateFilter]);
 
   const handleGetInsight = async () => {
     setLoadingInsight(true);
@@ -182,7 +193,7 @@ const Dashboard: React.FC = () => {
                 </div>
             ) : (
                 sales.slice().reverse().slice(0, 5).map((sale) => (
-                <div key={sale.id} className="group flex items-center justify-between p-3.5 bg-slate-50 hover:bg-emerald-50 rounded-xl border border-slate-100 hover:border-emerald-100 transition-all">
+                <div key={sale.id} className="group flex items-center justify-between p-3.5 bg-slate-50 hover:bg-emerald-50 rounded-xl border border-slate-100 hover:border-emerald-100 transition-all cursor-pointer" onClick={() => setSelectedSale(sale)}>
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 text-xs font-bold">
                             #{sale.items.length}
@@ -196,18 +207,172 @@ const Dashboard: React.FC = () => {
                             </p>
                         </div>
                     </div>
-                    <span className="font-bold text-emerald-600 text-sm">
-                    {sale.finalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                    </span>
+                    <div className="flex items-center gap-2">
+                        <span className="font-bold text-emerald-600 text-sm">
+                        {sale.finalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </span>
+                        <Eye size={16} className="text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
                 </div>
                 ))
             )}
           </div>
-          <button className="mt-4 w-full py-2 text-sm text-emerald-600 font-medium hover:bg-emerald-50 rounded-lg transition-colors flex items-center justify-center gap-1">
+          <button
+            onClick={() => setShowHistoryModal(true)}
+            className="mt-4 w-full py-2 text-sm text-emerald-600 font-medium hover:bg-emerald-50 rounded-lg transition-colors flex items-center justify-center gap-1"
+          >
               Ver histórico completo <ArrowRight size={14} />
           </button>
         </div>
       </div>
+
+      {/* Modal de Detalhes da Venda */}
+      {selectedSale && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedSale(null)}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 border-b border-slate-200 flex items-center justify-between bg-emerald-50">
+              <div>
+                <h3 className="text-xl font-bold text-slate-800">Detalhes da Venda</h3>
+                <p className="text-sm text-slate-500">#{selectedSale.id.slice(0, 8)}</p>
+              </div>
+              <button onClick={() => setSelectedSale(null)} className="p-2 hover:bg-emerald-100 rounded-lg transition-colors">
+                <X size={20} className="text-slate-600" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[60vh]">
+              <div className="space-y-4">
+                <div className="bg-slate-50 p-4 rounded-lg">
+                  <p className="text-xs text-slate-500 mb-1">Data e Hora</p>
+                  <p className="font-semibold text-slate-800">
+                    {new Date(selectedSale.timestamp).toLocaleString('pt-BR')}
+                  </p>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-lg">
+                  <p className="text-xs text-slate-500 mb-1">Método de Pagamento</p>
+                  <p className="font-semibold text-slate-800">{selectedSale.paymentMethod}</p>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-slate-800 mb-3">Produtos Vendidos</h4>
+                  <div className="space-y-2">
+                    {selectedSale.items.map((item, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                        <div>
+                          <p className="font-medium text-slate-800">{item.name}</p>
+                          <p className="text-xs text-slate-500">
+                            {item.quantity}x {item.salePrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          </p>
+                        </div>
+                        <p className="font-bold text-emerald-600">
+                          {item.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-200 pt-4 space-y-2">
+                  {selectedSale.discount > 0 && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-600">Desconto</span>
+                      <span className="text-red-600 font-semibold">
+                        -{selectedSale.discount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between text-lg">
+                    <span className="font-bold text-slate-800">Total</span>
+                    <span className="font-bold text-emerald-600">
+                      {selectedSale.finalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Histórico Completo */}
+      {showHistoryModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowHistoryModal(false)}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 border-b border-slate-200 bg-emerald-50">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-800">Histórico Completo de Vendas</h3>
+                  <p className="text-sm text-slate-500">Total: {filteredSales.length} vendas</p>
+                </div>
+                <button onClick={() => setShowHistoryModal(false)} className="p-2 hover:bg-emerald-100 rounded-lg transition-colors">
+                  <X size={20} className="text-slate-600" />
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Calendar size={18} className="text-emerald-600" />
+                <input
+                  type="date"
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                {dateFilter && (
+                  <button
+                    onClick={() => setDateFilter('')}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    Limpar
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+              {filteredSales.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-40 text-slate-400">
+                  <p className="text-sm">Nenhuma venda encontrada para esta data.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filteredSales.slice().reverse().map((sale) => (
+                    <div
+                      key={sale.id}
+                      className="group flex items-center justify-between p-4 bg-slate-50 hover:bg-emerald-50 rounded-xl border border-slate-100 hover:border-emerald-100 transition-all cursor-pointer"
+                      onClick={() => {
+                        setSelectedSale(sale);
+                        setShowHistoryModal(false);
+                      }}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold">
+                          #{sale.items.length}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-slate-800">Venda #{sale.id.slice(0, 8)}</p>
+                          <p className="text-sm text-slate-500">
+                            {new Date(sale.timestamp).toLocaleString('pt-BR')}
+                          </p>
+                          <p className="text-xs text-slate-400 mt-1">
+                            {sale.items.map(item => `${item.quantity}x ${item.name}`).join(', ')}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="font-bold text-emerald-600 text-lg">
+                          {sale.finalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </span>
+                        <Eye size={18} className="text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

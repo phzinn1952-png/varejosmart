@@ -11,6 +11,7 @@ const POS: React.FC = () => {
   const [selectedCustomer, setSelectedCustomer] = useState<string>('c1');
   const [isFinishing, setIsFinishing] = useState(false);
   const [discount, setDiscount] = useState(0);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
   // Filter products
   const filteredProducts = useMemo(() => {
@@ -57,9 +58,9 @@ const POS: React.FC = () => {
 
   const handleFinishSale = () => {
     if (cart.length === 0) return;
-    
+
     setIsFinishing(true);
-    
+
     // Simulate API delay
     setTimeout(() => {
       recordSale(cart, finalTotal, selectedPayment, discount, selectedCustomer);
@@ -67,7 +68,10 @@ const POS: React.FC = () => {
       setDiscount(0);
       setSearchTerm('');
       setIsFinishing(false);
-      alert('Venda finalizada com sucesso!');
+
+      // Show success message
+      setShowSuccessMessage(true);
+      setTimeout(() => setShowSuccessMessage(false), 3000);
     }, 800);
   };
 
@@ -273,6 +277,17 @@ const POS: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Success Toast Message */}
+      {showSuccessMessage && (
+        <div className="fixed bottom-8 right-8 bg-emerald-600 text-white px-6 py-4 rounded-lg shadow-2xl flex items-center gap-3 animate-[slideIn_0.3s_ease-out] z-50">
+          <CheckCircle size={24} className="flex-shrink-0" />
+          <div>
+            <p className="font-semibold">Venda concluída</p>
+            <p className="text-sm text-emerald-100">Registro salvo com sucesso</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
