@@ -3,7 +3,7 @@ import { Sale, Product } from "../types";
 
 // Initialize the client with the API key from the environment variable as per guidelines.
 // "Assume this variable is pre-configured, valid, and accessible"
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || '' });
 
 export const getBusinessInsight = async (
   salesData: Sale[],
