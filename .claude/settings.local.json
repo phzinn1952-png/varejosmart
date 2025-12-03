@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(cat:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm run db:setup:*)",
+      "Bash(ls:*)",
+      "Bash(npx tsx:*)",
+      "Bash(curl:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(taskkill /F /PID 48752)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
