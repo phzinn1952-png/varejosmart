@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { Product, CartItem, PaymentMethod } from '../types';
-import { Search, Plus, Minus, Trash2, CreditCard, Banknote, Smartphone, User, CheckCircle, ShoppingBag, AlertTriangle } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, CreditCard, Banknote, Smartphone, User, CheckCircle, ShoppingBag, AlertTriangle, PackagePlus, X } from 'lucide-react';
 
 const POS: React.FC = () => {
-  const { products, recordSale, customers } = useAppContext();
+  const { products, recordSale, customers, updateProduct } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>(PaymentMethod.CASH);
@@ -13,6 +13,9 @@ const POS: React.FC = () => {
   const [discount, setDiscount] = useState(0);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [stockWarning, setStockWarning] = useState<string | null>(null);
+  const [showQuickRestock, setShowQuickRestock] = useState(false);
+  const [restockProduct, setRestockProduct] = useState<Product | null>(null);
+  const [restockQuantity, setRestockQuantity] = useState(0);
 
   // Filter products
   const filteredProducts = useMemo(() => {
@@ -86,8 +89,46 @@ const POS: React.FC = () => {
     }));
   };
 
+  const handleQuickRestock = (product: Product) => {
+    setRestockProduct(product);
+    setRestockQuantity(product.minStock - product.stock);
+    setShowQuickRestock(true);
+  };
+
+  const confirmRestock = () => {
+    if (!restockProduct || restockQuantity <= 0) return;
+
+    const updatedProduct = {
+      ...restockProduct,
+      stock: restockProduct.stock + restockQuantity
+    };
+
+    updateProduct(updatedProduct);
+
+    setShowQuickRestock(false);
+    setRestockProduct(null);
+    setRestockQuantity(0);
+
+    // Mostrar mensagem de sucesso
+    setStockWarning(`✅ ${restockProduct.name} reabastecido: +${restockQuantity} un`);
+    setTimeout(() => setStockWarning(null), 3000);
+  };
+
   const handleFinishSale = () => {
     if (cart.length === 0) return;
+
+    // Validar se há estoque suficiente antes de finalizar
+    const insufficientStock = cart.find(item => {
+      const product = products.find(p => p.id === item.id);
+      return product && item.quantity > product.stock;
+    });
+
+    if (insufficientStock) {
+      const product = products.find(p => p.id === insufficientStock.id);
+      setStockWarning(`Estoque insuficiente para ${insufficientStock.name}. Disponível: ${product?.stock || 0} un`);
+      setTimeout(() => setStockWarning(null), 4000);
+      return;
+    }
 
     setIsFinishing(true);
 
@@ -128,35 +169,58 @@ const POS: React.FC = () => {
         <div className="flex-1 overflow-y-auto p-4 bg-slate-50">
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredProducts.map(product => (
-              <button
+              <div
                 key={product.id}
-                onClick={() => addToCart(product)}
-                disabled={product.stock <= 0}
                 className={`
-                  group flex flex-col items-start text-left p-4 rounded-xl border transition-all duration-200
-                  ${product.stock <= 0 
-                    ? 'bg-slate-100 border-slate-200 opacity-60 cursor-not-allowed' 
-                    : 'bg-white border-slate-200 hover:border-emerald-400 hover:shadow-lg hover:shadow-emerald-900/5 hover:-translate-y-1'}
+                  group flex flex-col items-start text-left p-4 rounded-xl border transition-all duration-200 relative
+                  ${product.stock <= 0
+                    ? 'bg-slate-100 border-slate-200 opacity-60'
+                    : 'bg-white border-slate-200 hover:border-emerald-400 hover:shadow-lg hover:shadow-emerald-900/5'}
                 `}
               >
-                <div className="w-full aspect-square bg-slate-100 rounded-lg mb-3 overflow-hidden relative group-hover:ring-2 group-hover:ring-emerald-100 transition-all">
-                    {product.image && <img src={product.image} alt={product.name} className="w-full h-full object-cover" />}
-                    {product.stock <= product.minStock && product.stock > 0 && (
-                        <span className="absolute top-1 right-1 bg-yellow-400 text-yellow-900 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
-                            BAIXO
-                        </span>
-                    )}
-                </div>
-                <h3 className="font-semibold text-slate-800 line-clamp-2 text-sm h-10 group-hover:text-emerald-700">{product.name}</h3>
-                <div className="mt-2 w-full flex items-end justify-between">
-                  <span className="text-lg font-bold text-emerald-600">
-                    R$ {product.salePrice.toFixed(2)}
-                  </span>
-                  <span className={`text-xs ${product.stock === 0 ? 'text-red-500' : 'text-slate-500'}`}>
-                    {product.stock} un
-                  </span>
-                </div>
-              </button>
+                {/* Botão de reposição rápida */}
+                {product.stock <= product.minStock && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleQuickRestock(product);
+                    }}
+                    className="absolute top-2 right-2 z-10 p-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-md transition-all opacity-0 group-hover:opacity-100"
+                    title="Repor Estoque"
+                  >
+                    <PackagePlus size={16} />
+                  </button>
+                )}
+
+                <button
+                  onClick={() => addToCart(product)}
+                  disabled={product.stock <= 0}
+                  className="w-full flex flex-col items-start text-left"
+                >
+                  <div className="w-full aspect-square bg-slate-100 rounded-lg mb-3 overflow-hidden relative group-hover:ring-2 group-hover:ring-emerald-100 transition-all">
+                      {product.image && <img src={product.image} alt={product.name} className="w-full h-full object-cover" />}
+                      {product.stock <= product.minStock && product.stock > 0 && (
+                          <span className="absolute top-1 left-1 bg-yellow-400 text-yellow-900 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
+                              BAIXO
+                          </span>
+                      )}
+                      {product.stock === 0 && (
+                          <span className="absolute top-1 left-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
+                              SEM ESTOQUE
+                          </span>
+                      )}
+                  </div>
+                  <h3 className="font-semibold text-slate-800 line-clamp-2 text-sm h-10 group-hover:text-emerald-700">{product.name}</h3>
+                  <div className="mt-2 w-full flex items-end justify-between">
+                    <span className="text-lg font-bold text-emerald-600">
+                      R$ {product.salePrice.toFixed(2)}
+                    </span>
+                    <span className={`text-xs ${product.stock === 0 ? 'text-red-500' : 'text-slate-500'}`}>
+                      {product.stock} un
+                    </span>
+                  </div>
+                </button>
+              </div>
             ))}
             {filteredProducts.length === 0 && (
               <div className="col-span-full flex flex-col items-center justify-center py-12 text-slate-400">
@@ -339,11 +403,87 @@ const POS: React.FC = () => {
 
       {/* Stock Warning Toast */}
       {stockWarning && (
-        <div className="fixed bottom-8 right-8 bg-amber-500 text-white px-6 py-4 rounded-lg shadow-2xl flex items-center gap-3 animate-[slideIn_0.3s_ease-out] z-50">
-          <AlertTriangle size={24} className="flex-shrink-0" />
+        <div className={`fixed bottom-8 right-8 px-6 py-4 rounded-lg shadow-2xl flex items-center gap-3 animate-[slideIn_0.3s_ease-out] z-50 ${
+          stockWarning.startsWith('✅') ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'
+        }`}>
+          {stockWarning.startsWith('✅') ? (
+            <CheckCircle size={24} className="flex-shrink-0" />
+          ) : (
+            <AlertTriangle size={24} className="flex-shrink-0" />
+          )}
           <div>
-            <p className="font-semibold">Estoque insuficiente</p>
-            <p className="text-sm text-amber-100">{stockWarning}</p>
+            <p className="font-semibold">{stockWarning.startsWith('✅') ? 'Sucesso' : 'Aviso'}</p>
+            <p className={stockWarning.startsWith('✅') ? 'text-sm text-emerald-100' : 'text-sm text-amber-100'}>
+              {stockWarning}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Restock Modal */}
+      {showQuickRestock && restockProduct && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowQuickRestock(false)}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 border-b border-slate-200 bg-blue-50">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-blue-900 flex items-center gap-2">
+                  <PackagePlus size={24} />
+                  Repor Estoque
+                </h3>
+                <button onClick={() => setShowQuickRestock(false)} className="p-2 hover:bg-blue-100 rounded-lg transition-colors">
+                  <X size={20} className="text-slate-600" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-slate-50 p-4 rounded-lg">
+                <h4 className="font-semibold text-slate-800 mb-2">{restockProduct.name}</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-slate-500">Estoque Atual</p>
+                    <p className="font-bold text-red-600">{restockProduct.stock} un</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Estoque Mínimo</p>
+                    <p className="font-bold text-slate-600">{restockProduct.minStock} un</p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Quantidade a Adicionar
+                </label>
+                <input
+                  type="number"
+                  value={restockQuantity}
+                  onChange={(e) => setRestockQuantity(Math.max(0, parseInt(e.target.value) || 0))}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  min="0"
+                  autoFocus
+                />
+                <p className="text-xs text-slate-500 mt-2">
+                  Novo estoque: {restockProduct.stock + restockQuantity} un
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowQuickRestock(false)}
+                  className="flex-1 py-3 border border-slate-300 text-slate-700 font-medium rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmRestock}
+                  disabled={restockQuantity <= 0}
+                  className="flex-1 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Confirmar Reposição
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -440,7 +440,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setProducts(prevProducts => prevProducts.map(p => {
       const soldItem = items.find(i => i.id === p.id);
       if (soldItem) {
-        return { ...p, stock: p.stock - soldItem.quantity };
+        // Prevenir estoque negativo
+        const newStock = Math.max(0, p.stock - soldItem.quantity);
+        return { ...p, stock: newStock };
       }
       return p;
     }));
