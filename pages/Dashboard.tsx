@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { DollarSign, ShoppingBag, TrendingUp, AlertTriangle, Sparkles, Loader2, ArrowRight, BellRing, X, Eye, Calendar } from 'lucide-react';
+import { DollarSign, ShoppingBag, TrendingUp, AlertTriangle, Sparkles, Loader2, ArrowRight, BellRing, X, Eye, Calendar, Package } from 'lucide-react';
 import { getBusinessInsight } from '../services/geminiService';
 import { Sale } from '../types';
 
@@ -13,8 +13,10 @@ const Dashboard: React.FC = () => {
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [dateFilter, setDateFilter] = useState<string>('');
+  const [showLowStockModal, setShowLowStockModal] = useState(false);
 
-  const lowStockCount = products.filter(p => p.stock <= p.minStock).length;
+  const lowStockProducts = products.filter(p => p.stock <= p.minStock);
+  const lowStockCount = lowStockProducts.length;
 
   // Filter sales by date
   const filteredSales = useMemo(() => {
@@ -116,24 +118,36 @@ const Dashboard: React.FC = () => {
                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
              </span>
           )}
-          
-          <div className="flex items-center justify-between">
-            <div>
-              <p className={`text-sm font-medium mb-1 ${lowStockCount > 0 ? 'text-red-600' : 'text-slate-500'}`}>Estoque Crítico</p>
-              <h3 className={`text-2xl font-bold tracking-tight ${lowStockCount > 0 ? 'text-red-600' : 'text-slate-800'}`}>
-                {lowStockCount} itens
-              </h3>
-              {lowStockCount > 0 && (
-                  <p className="text-[10px] text-red-500 font-semibold mt-1 animate-pulse">Ação Necessária!</p>
-              )}
+
+          <div className="flex flex-col h-full justify-between">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className={`text-sm font-medium mb-1 ${lowStockCount > 0 ? 'text-red-600' : 'text-slate-500'}`}>Estoque Crítico</p>
+                <h3 className={`text-2xl font-bold tracking-tight ${lowStockCount > 0 ? 'text-red-600' : 'text-slate-800'}`}>
+                  {lowStockCount} itens
+                </h3>
+                {lowStockCount > 0 && (
+                    <p className="text-[10px] text-red-500 font-semibold mt-1 animate-pulse">Ação Necessária!</p>
+                )}
+              </div>
+              <div className={`p-3 rounded-xl group-hover:scale-110 transition-transform ${lowStockCount > 0 ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-slate-600'}`}>
+                 {lowStockCount > 0 ? (
+                     <BellRing size={24} className="animate-[wiggle_1s_ease-in-out_infinite]" />
+                 ) : (
+                     <AlertTriangle size={24} />
+                 )}
+              </div>
             </div>
-            <div className={`p-3 rounded-xl group-hover:scale-110 transition-transform ${lowStockCount > 0 ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-slate-600'}`}>
-               {lowStockCount > 0 ? (
-                   <BellRing size={24} className="animate-[wiggle_1s_ease-in-out_infinite]" />
-               ) : (
-                   <AlertTriangle size={24} />
-               )}
-            </div>
+
+            {lowStockCount > 0 && (
+              <button
+                onClick={() => setShowLowStockModal(true)}
+                className="w-full py-2 px-3 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1"
+              >
+                <Eye size={14} />
+                Ver Produtos
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -262,7 +276,7 @@ const Dashboard: React.FC = () => {
                         <div>
                           <p className="font-medium text-slate-800">{item.name}</p>
                           <p className="text-xs text-slate-500">
-                            {item.quantity}x {item.salePrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            Qtd: {item.quantity}x | Preço Unit.: {item.salePrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                           </p>
                         </div>
                         <p className="font-bold text-emerald-600">
@@ -290,6 +304,80 @@ const Dashboard: React.FC = () => {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Estoque Crítico */}
+      {showLowStockModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowLowStockModal(false)}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 border-b border-slate-200 bg-red-50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-red-800 flex items-center gap-2">
+                    <AlertTriangle size={24} />
+                    Produtos com Estoque Crítico
+                  </h3>
+                  <p className="text-sm text-red-600 mt-1">{lowStockCount} produtos precisam de atenção</p>
+                </div>
+                <button onClick={() => setShowLowStockModal(false)} className="p-2 hover:bg-red-100 rounded-lg transition-colors">
+                  <X size={20} className="text-slate-600" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+              {lowStockProducts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-40 text-slate-400">
+                  <AlertTriangle size={48} className="mb-4 opacity-20" />
+                  <p className="text-sm">Nenhum produto com estoque crítico</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {lowStockProducts.map((product) => (
+                    <div
+                      key={product.id}
+                      className="flex items-center justify-between p-4 bg-red-50 border border-red-100 rounded-xl hover:shadow-md transition-all"
+                    >
+                      <div className="flex items-center gap-4 flex-1">
+                        <div className="w-16 h-16 bg-white rounded-lg overflow-hidden flex items-center justify-center border border-red-100">
+                          {product.image ? (
+                            <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <Package size={32} className="text-red-300" />
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-slate-800">{product.name}</h4>
+                          <p className="text-sm text-slate-500 mb-2">Código: {product.code}</p>
+                          <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs text-slate-500">Estoque Atual:</span>
+                              <span className="text-sm font-bold text-red-600">{product.stock} un</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs text-slate-500">Estoque Mínimo:</span>
+                              <span className="text-sm font-semibold text-slate-600">{product.minStock} un</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs text-slate-500">Faltam:</span>
+                              <span className="text-sm font-bold text-amber-600">{Math.max(0, product.minStock - product.stock)} un</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-slate-500 mb-1">Preço de Venda</p>
+                        <p className="text-lg font-bold text-emerald-600">
+                          {product.salePrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -355,7 +443,7 @@ const Dashboard: React.FC = () => {
                             {new Date(sale.timestamp).toLocaleString('pt-BR')}
                           </p>
                           <p className="text-xs text-slate-400 mt-1">
-                            {sale.items.map(item => `${item.quantity}x ${item.name}`).join(', ')}
+                            {sale.items.map(item => `${item.name} (${item.quantity}un)`).join(' • ')}
                           </p>
                         </div>
                       </div>

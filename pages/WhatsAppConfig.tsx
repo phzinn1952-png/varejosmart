@@ -10,7 +10,9 @@ interface WhatsAppStatus {
   authMethod?: 'qr' | 'phone';
 }
 
-const WHATSAPP_API_URL = 'http://localhost:3004/api/whatsapp';
+const WHATSAPP_API_URL = import.meta.env.VITE_WHATSAPP_API_URL
+  ? `${import.meta.env.VITE_WHATSAPP_API_URL}/api/whatsapp`
+  : 'http://localhost:3004/api/whatsapp';
 
 const WhatsAppConfig: React.FC = () => {
   const [status, setStatus] = useState<WhatsAppStatus>({
@@ -237,7 +239,7 @@ const WhatsAppConfig: React.FC = () => {
             Configuração do WhatsApp
           </h1>
           <p className="text-slate-600 mt-2">
-            Conecte seu WhatsApp para enviar mensagens automáticas aos clientes
+            Conecte seu WhatsApp
           </p>
         </div>
 

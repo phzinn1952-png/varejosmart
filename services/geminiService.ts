@@ -1,9 +1,13 @@
 import { GoogleGenAI } from "@google/genai";
 import { Sale, Product } from "../types";
 
-// Initialize the client with the API key from the environment variable as per guidelines.
-// "Assume this variable is pre-configured, valid, and accessible"
-const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || '' });
+// Get API key from environment variable
+const getApiKey = () => {
+  // Try different environment variable formats for compatibility
+  return import.meta.env.VITE_GEMINI_API_KEY ||
+         import.meta.env.GEMINI_API_KEY ||
+         '';
+};
 
 export const getBusinessInsight = async (
   salesData: Sale[],
@@ -12,6 +16,15 @@ export const getBusinessInsight = async (
   contextData?: string
 ): Promise<string> => {
   try {
+    // Validate API key before making requests
+    const apiKey = getApiKey();
+
+    if (!apiKey || apiKey.trim() === '') {
+      return "⚠️ **API Key não configurada**\n\nPara usar a IA, configure a variável de ambiente:\n\n- **Local**: Adicione `VITE_GEMINI_API_KEY` no arquivo `.env`\n- **Vercel**: Adicione `VITE_GEMINI_API_KEY` nas Environment Variables do projeto\n\nObtenha sua chave em: https://makersuite.google.com/app/apikey";
+    }
+
+    // Initialize AI client with the API key
+    const ai = new GoogleGenAI({ apiKey });
     let prompt = "";
 
     if (queryType === 'SALES_ANALYSIS') {

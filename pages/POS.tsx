@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { Product, CartItem, PaymentMethod } from '../types';
-import { Search, Plus, Minus, Trash2, CreditCard, Banknote, Smartphone, User, CheckCircle, ShoppingBag } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, CreditCard, Banknote, Smartphone, User, CheckCircle, ShoppingBag, AlertTriangle } from 'lucide-react';
 
 const POS: React.FC = () => {
   const { products, recordSale, customers } = useAppContext();
@@ -12,6 +12,7 @@ const POS: React.FC = () => {
   const [isFinishing, setIsFinishing] = useState(false);
   const [discount, setDiscount] = useState(0);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [stockWarning, setStockWarning] = useState<string | null>(null);
 
   // Filter products
   const filteredProducts = useMemo(() => {
@@ -31,13 +32,28 @@ const POS: React.FC = () => {
   const addToCart = (product: Product) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
+
       if (existing) {
-        return prev.map(item => 
-          item.id === product.id 
+        // Verificar se há estoque para incrementar
+        if (existing.quantity >= product.stock) {
+          setStockWarning(`Estoque insuficiente: ${product.name} (disponível: ${product.stock})`);
+          setTimeout(() => setStockWarning(null), 3000);
+          return prev;
+        }
+        return prev.map(item =>
+          item.id === product.id
             ? { ...item, quantity: item.quantity + 1, total: (item.quantity + 1) * item.salePrice }
             : item
         );
       }
+
+      // Verificar estoque ao adicionar novo item
+      if (product.stock <= 0) {
+        setStockWarning(`Produto sem estoque: ${product.name}`);
+        setTimeout(() => setStockWarning(null), 3000);
+        return prev;
+      }
+
       return [...prev, { ...product, quantity: 1, total: product.salePrice }];
     });
   };
@@ -49,8 +65,22 @@ const POS: React.FC = () => {
   const updateQuantity = (productId: string, delta: number) => {
     setCart(prev => prev.map(item => {
       if (item.id === productId) {
-        const newQty = Math.max(1, item.quantity + delta);
-        return { ...item, quantity: newQty, total: newQty * item.salePrice };
+        // Encontrar o produto original para verificar estoque
+        const product = products.find(p => p.id === productId);
+        if (!product) return item;
+
+        const newQty = item.quantity + delta;
+
+        // Validações: quantidade mínima: 1, quantidade máxima: estoque do produto
+        const validQty = Math.max(1, Math.min(newQty, product.stock));
+
+        // Se tentou incrementar além do estoque, mostrar aviso
+        if (delta > 0 && newQty > product.stock) {
+          setStockWarning(`Estoque insuficiente: ${product.name} (disponível: ${product.stock})`);
+          setTimeout(() => setStockWarning(null), 3000);
+        }
+
+        return { ...item, quantity: validQty, total: validQty * item.salePrice };
       }
       return item;
     }));
@@ -157,37 +187,55 @@ const POS: React.FC = () => {
               <p className="text-xs text-center px-8">Selecione produtos ao lado para iniciar uma venda</p>
             </div>
           ) : (
-            cart.map(item => (
-              <div key={item.id} className="flex gap-3 items-center bg-white p-2 rounded-lg border border-slate-100 hover:border-emerald-200 transition-colors shadow-sm">
-                <div className="flex-1">
-                  <p className="font-medium text-slate-800 text-sm line-clamp-1">{item.name}</p>
-                  <p className="text-emerald-600 font-semibold text-sm">
-                    {item.quantity} x R$ {item.salePrice.toFixed(2)}
-                  </p>
+            cart.map(item => {
+              const product = products.find(p => p.id === item.id);
+              const isMaxStock = product && item.quantity >= product.stock;
+
+              return (
+                <div key={item.id} className="flex flex-col bg-white p-2 rounded-lg border border-slate-100 hover:border-emerald-200 transition-colors shadow-sm">
+                  <div className="flex gap-3 items-center">
+                    <div className="flex-1">
+                      <p className="font-medium text-slate-800 text-sm line-clamp-1">{item.name}</p>
+                      <p className="text-emerald-600 font-semibold text-sm">
+                        {item.quantity} x R$ {item.salePrice.toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 bg-slate-50 rounded-lg p-1 border border-slate-100">
+                      <button
+                        onClick={() => updateQuantity(item.id, -1)}
+                        className="p-1 hover:bg-white hover:text-red-500 rounded shadow-sm transition-all text-slate-400"
+                      >
+                        <Minus size={14} />
+                      </button>
+                      <span className="w-6 text-center text-sm font-medium text-slate-700">{item.quantity}</span>
+                      <button
+                        onClick={() => updateQuantity(item.id, 1)}
+                        disabled={isMaxStock}
+                        className={`p-1 rounded shadow-sm transition-all ${
+                          isMaxStock
+                            ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                            : 'hover:bg-white hover:text-emerald-600 text-emerald-500'
+                        }`}
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => removeFromCart(item.id)}
+                      className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                  {isMaxStock && (
+                    <div className="mt-2 flex items-center gap-1 text-xs text-amber-600 font-medium">
+                      <AlertTriangle size={12} />
+                      <span>Estoque máximo atingido</span>
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center gap-1 bg-slate-50 rounded-lg p-1 border border-slate-100">
-                  <button 
-                    onClick={() => updateQuantity(item.id, -1)}
-                    className="p-1 hover:bg-white hover:text-red-500 rounded shadow-sm transition-all text-slate-400"
-                  >
-                    <Minus size={14} />
-                  </button>
-                  <span className="w-6 text-center text-sm font-medium text-slate-700">{item.quantity}</span>
-                  <button 
-                    onClick={() => updateQuantity(item.id, 1)}
-                    className="p-1 hover:bg-white hover:text-emerald-600 rounded shadow-sm transition-all text-emerald-500"
-                  >
-                    <Plus size={14} />
-                  </button>
-                </div>
-                <button 
-                  onClick={() => removeFromCart(item.id)}
-                  className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
@@ -285,6 +333,17 @@ const POS: React.FC = () => {
           <div>
             <p className="font-semibold">Venda concluída</p>
             <p className="text-sm text-emerald-100">Registro salvo com sucesso</p>
+          </div>
+        </div>
+      )}
+
+      {/* Stock Warning Toast */}
+      {stockWarning && (
+        <div className="fixed bottom-8 right-8 bg-amber-500 text-white px-6 py-4 rounded-lg shadow-2xl flex items-center gap-3 animate-[slideIn_0.3s_ease-out] z-50">
+          <AlertTriangle size={24} className="flex-shrink-0" />
+          <div>
+            <p className="font-semibold">Estoque insuficiente</p>
+            <p className="text-sm text-amber-100">{stockWarning}</p>
           </div>
         </div>
       )}

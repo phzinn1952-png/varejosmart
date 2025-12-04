@@ -125,18 +125,93 @@ VS/
 - Sessões WhatsApp ficam em `.wwebjs_auth/` (não commitadas)
 - Banco de dados SQLite em `db/varejosmart.db`
 
+## ☁️ Deploy no Vercel
+
+### 1. Fazer Deploy
+
+```bash
+# Instale o Vercel CLI (se ainda não tiver)
+npm i -g vercel
+
+# Faça login no Vercel
+vercel login
+
+# Deploy do projeto
+vercel
+```
+
+### 2. Configurar Variáveis de Ambiente no Vercel
+
+**IMPORTANTE:** Após o deploy, configure a API Key do Gemini:
+
+1. Acesse seu projeto no [Vercel Dashboard](https://vercel.com/dashboard)
+2. Vá em **Settings** → **Environment Variables**
+3. Adicione a variável:
+   - **Name:** `VITE_GEMINI_API_KEY`
+   - **Value:** Sua chave da API Gemini
+   - **Environments:** Production, Preview, Development
+
+4. Faça um novo deploy para aplicar as mudanças:
+   ```bash
+   vercel --prod
+   ```
+
+**Obter chave do Gemini:** https://makersuite.google.com/app/apikey
+
+### 3. Persistência de Dados
+
+- **Desenvolvimento Local:** Usa localStorage do navegador
+- **Produção (Vercel):** Usa localStorage do navegador
+- **Backup/Restore:** Use a função de exportar/importar dados na página de Produtos
+
+⚠️ **Importante:** Os dados ficam salvos no navegador do cliente. Para backup, exporte os dados regularmente.
+
 ## 🐛 Troubleshooting
 
+**IA não funciona no Vercel:**
+- Verifique se a variável `VITE_GEMINI_API_KEY` está configurada no Vercel
+- Faça um novo deploy após adicionar a variável
+- Verifique os logs do Vercel: `vercel logs`
+
 **Erro "API key must be set":**
-- Configure `VITE_GEMINI_API_KEY` no arquivo `.env`
+- **Local:** Configure `VITE_GEMINI_API_KEY` no arquivo `.env`
+- **Vercel:** Configure nas Environment Variables do projeto
 
 **Porta 3003 ou 3004 em uso:**
 - Verifique processos: `netstat -ano | findstr :3003`
 - Mate o processo: `taskkill //F //PID <pid>`
 
 **WhatsApp não conecta:**
-- Verifique se o servidor está rodando na porta 3004
-- Limpe cache: delete `.wwebjs_auth/` e tente novamente
+- **Local:** Verifique se o servidor está rodando na porta 3004
+- **Local:** Limpe cache: delete `.wwebjs_auth/` e tente novamente
+- **Vercel:** WhatsApp requer servidor separado - veja [WHATSAPP_DEPLOY.md](WHATSAPP_DEPLOY.md)
+
+**Dados sumiram após deploy:**
+- Os dados ficam no localStorage do navegador
+- Faça backup regularmente usando a função de exportar
+- Cada navegador/dispositivo tem seus próprios dados
+
+## 📱 WhatsApp em Produção
+
+⚠️ **IMPORTANTE:** O WhatsApp Web.js **não funciona diretamente no Vercel** porque requer um servidor Node.js persistente.
+
+### Soluções:
+
+1. **Frontend no Vercel + Backend Separado** (Recomendado)
+   - Frontend React no Vercel (grátis)
+   - Backend WhatsApp no Railway/Render (grátis ou ~$5/mês)
+   - Guia completo: [WHATSAPP_DEPLOY.md](WHATSAPP_DEPLOY.md)
+
+2. **Desenvolvimento Local**
+   - Rode tudo localmente: `npm run dev` + `npm run whatsapp`
+   - Ideal para testes e desenvolvimento
+
+3. **VPS Único**
+   - Deploy completo em VPS (DigitalOcean, Linode)
+   - Custo: ~$5-10/mês
+   - Melhor para produção séria
+
+📖 **Documentação completa:** [WHATSAPP_DEPLOY.md](WHATSAPP_DEPLOY.md)
 
 ## 📄 Licença
 
